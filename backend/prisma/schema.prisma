@@ -1,0 +1,531 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OFFICIAL
+  PARTICIPANT
+}
+
+enum AccountStatus {
+  PENDING_EMAIL_VERIFICATION
+  ACTIVE
+  DISABLED
+}
+
+enum TournamentStatus {
+  DRAFT
+  PUBLISHED
+  ACTIVE
+  CLOSED
+}
+
+enum RegistrationChannel {
+  ADMIN
+  SELF_SERVICE
+}
+
+enum RegistrationReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum CaptureStatus {
+  PENDING_VALIDATION
+  APPROVED
+  OBSERVED
+  REJECTED
+}
+
+enum CaptureSyncStatus {
+  ONLINE
+  SYNCED
+}
+
+enum CaptureValidationAction {
+  APPROVE
+  OBSERVE
+  REJECT
+}
+
+enum TieBreakerStrategy {
+  MVP_V1
+}
+
+enum ScoreAdjustmentStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum RankingSnapshotType {
+  LIVE
+  FINAL
+}
+
+enum RankingScope {
+  INDIVIDUAL
+  TEAM
+}
+
+enum RankingCompetitorType {
+  PARTICIPANT
+  TEAM
+}
+
+enum ExportFormat {
+  CSV
+  XLSX
+}
+
+enum ExportStatus {
+  READY
+  FAILED
+}
+
+enum ExportType {
+  REGISTRATIONS
+  LIVE_RANKING
+  FINAL_RANKING
+  CAPTURES_BY_PARTICIPANT
+  CAPTURES_BY_TEAM
+  REJECTED_OBSERVED_CAPTURES
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String?
+  firstName      String
+  lastName       String
+  phone          String?
+  accountStatus  AccountStatus   @default(PENDING_EMAIL_VERIFICATION)
+  emailVerifiedAt DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  roleAssignments UserRoleAssignment[]
+  participant     Participant?
+  official        Official?
+  verificationTokens EmailVerificationToken[]
+  passwordSetupTokens PasswordSetupToken[]
+  authSessions AuthSession[]
+  auditLogs       AuditLog[]      @relation("AuditActor")
+  reviewedRegistrations Registration[] @relation("RegistrationReviewedBy")
+  captureValidations CaptureValidation[] @relation("CaptureValidatedBy")
+  updatedTournamentScoringConfigs TournamentScoringConfig[] @relation("TournamentScoringConfigUpdatedBy")
+  createdScoreAdjustments ScoreAdjustment[] @relation("ScoreAdjustmentCreatedBy")
+  revokedScoreAdjustments ScoreAdjustment[] @relation("ScoreAdjustmentRevokedBy")
+  finalizedRankingStates TournamentRankingState[] @relation("TournamentRankingStateFinalizedBy")
+  requestedExports ExportRecord[] @relation("ExportRequestedBy")
+}
+
+model AuthSession {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model UserRoleAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  role      UserRole
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+model EmailVerificationToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordSetupToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Tournament {
+  id            String           @id @default(cuid())
+  name          String
+  eventDate     DateTime
+  location      String
+  status        TournamentStatus @default(DRAFT)
+  rulesSummary  String?
+  scoringConfig Json?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  schedules     TournamentSchedule[]
+  officialAssignments OfficialTournamentAssignment[]
+  registrations Registration[]
+  captures      Capture[]
+  tournamentScoringConfig TournamentScoringConfig?
+  rankingState  TournamentRankingState?
+  rankingEntries RankingEntry[]
+  scoreAdjustments ScoreAdjustment[]
+  exportRecords ExportRecord[]
+}
+
+model TournamentSchedule {
+  id           String   @id @default(cuid())
+  tournamentId String   @unique
+  startAt      DateTime?
+  fishingStartAt DateTime?
+  fishingEndAt DateTime?
+  validationDeadlineAt DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+}
+
+model Participant {
+  id             String   @id @default(cuid())
+  userId         String?  @unique
+  documentId     String?  @unique
+  firstName      String
+  lastName       String
+  phone          String?
+  enabledToCompete Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+  deletedBy      String?
+
+  user       User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  teamLinks   ParticipantTeamLink[]
+  boatLinks   ParticipantBoatLink[]
+  registrations Registration[]
+  captures    Capture[]
+  scoreAdjustments ScoreAdjustment[]
+}
+
+model Registration {
+  id                    String                   @id @default(cuid())
+  tournamentId          String
+  participantId         String?
+  channel               RegistrationChannel
+  reviewStatus          RegistrationReviewStatus
+  applicantFirstName    String
+  applicantLastName     String
+  applicantDocumentId   String?
+  applicantEmail        String?
+  applicantPhone        String?
+  acceptedRulesAt       DateTime
+  acceptedRulesSnapshot Json?
+  statusLookupTokenHash String?                  @unique
+  reviewNotes           String?
+  reviewedByUserId      String?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  tournament  Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  participant Participant? @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  reviewedBy  User?        @relation("RegistrationReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tournamentId, reviewStatus, createdAt])
+  @@index([tournamentId, channel, createdAt])
+  @@index([participantId])
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  participantLinks ParticipantTeamLink[]
+  captures         Capture[]
+  scoreAdjustments ScoreAdjustment[]
+}
+
+model Boat {
+  id          String   @id @default(cuid())
+  name        String
+  registrationNumber String? @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  participantLinks ParticipantBoatLink[]
+}
+
+model ParticipantTeamLink {
+  id            String   @id @default(cuid())
+  participantId String
+  teamId        String
+  createdAt     DateTime @default(now())
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  team        Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, teamId])
+}
+
+model ParticipantBoatLink {
+  id            String   @id @default(cuid())
+  participantId String
+  boatId        String
+  createdAt     DateTime @default(now())
+  deletedAt     DateTime?
+  deletedBy     String?
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  boat        Boat        @relation(fields: [boatId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, boatId])
+}
+
+model Official {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  documentId  String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournamentAssignments OfficialTournamentAssignment[]
+  captures              Capture[]
+}
+
+model OfficialTournamentAssignment {
+  id           String   @id @default(cuid())
+  officialId   String
+  tournamentId String
+  createdAt    DateTime @default(now())
+
+  official   Official   @relation(fields: [officialId], references: [id], onDelete: Cascade)
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([officialId, tournamentId])
+}
+
+model Capture {
+  id               String            @id @default(cuid())
+  tournamentId     String
+  participantId    String
+  teamId           String?
+  officialId       String
+  species          String
+  length           Float
+  capturedAt       DateTime
+  recordedAt       DateTime          @default(now())
+  deviceRecordedAt DateTime?
+  syncedAt         DateTime?
+  gps              Json?
+  observation      String?
+  status           CaptureStatus     @default(PENDING_VALIDATION)
+  syncStatus       CaptureSyncStatus @default(ONLINE)
+  clientCaptureId  String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  tournament   Tournament           @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  participant  Participant          @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  team         Team?                @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  official     Official             @relation(fields: [officialId], references: [id], onDelete: Restrict)
+  media        CaptureMedia[]
+  validations  CaptureValidation[]
+
+  @@index([tournamentId, status, capturedAt])
+  @@index([officialId, createdAt])
+  @@index([participantId, capturedAt])
+  @@unique([tournamentId, officialId, clientCaptureId])
+}
+
+model CaptureMedia {
+  id           String   @id @default(cuid())
+  captureId    String
+  storageKey   String   @unique
+  originalName String
+  mimeType     String
+  size         Int
+  checksum     String?
+  status       String   @default("AVAILABLE")
+  uploadedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  capture Capture @relation(fields: [captureId], references: [id], onDelete: Cascade)
+
+  @@index([captureId, uploadedAt])
+}
+
+model CaptureValidation {
+  id                String                  @id @default(cuid())
+  captureId         String
+  action            CaptureValidationAction
+  reason            String?
+  validatedByUserId String
+  validatedAt       DateTime                @default(now())
+  createdAt         DateTime                @default(now())
+
+  capture     Capture @relation(fields: [captureId], references: [id], onDelete: Cascade)
+  validatedBy User    @relation("CaptureValidatedBy", fields: [validatedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([captureId, validatedAt])
+  @@index([validatedByUserId, validatedAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorRole   String?
+  action      String
+  entityName  String
+  entityId    String
+  context     Json?
+  diffSummary Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+}
+
+model TournamentScoringConfig {
+  id                        String             @id @default(cuid())
+  tournamentId              String             @unique
+  pointsPerValidPiece       Int
+  largestCaptureBonusPoints Int
+  distinctSpeciesPoints     Int
+  tieBreakerStrategy        TieBreakerStrategy @default(MVP_V1)
+  updatedByUserId           String?
+  updatedAt                 DateTime           @updatedAt
+  createdAt                 DateTime           @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  updatedBy  User?      @relation("TournamentScoringConfigUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+}
+
+model ScoreAdjustment {
+  id              String                @id @default(cuid())
+  tournamentId    String
+  participantId   String
+  teamId          String?
+  pointsDelta     Int
+  reason          String
+  status          ScoreAdjustmentStatus @default(ACTIVE)
+  createdByUserId String
+  createdAt       DateTime              @default(now())
+  revokedByUserId String?
+  revokedAt       DateTime?
+  revokedReason   String?
+
+  tournament Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  team        Team?       @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  createdBy   User        @relation("ScoreAdjustmentCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  revokedBy   User?       @relation("ScoreAdjustmentRevokedBy", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tournamentId, status, createdAt])
+  @@index([participantId, status, createdAt])
+  @@index([teamId, status, createdAt])
+}
+
+model TournamentRankingState {
+  id                String   @id @default(cuid())
+  tournamentId      String   @unique
+  liveVersion       Int      @default(0)
+  lastCalculatedAt  DateTime?
+  dirty             Boolean  @default(false)
+  dirtyReason       String?
+  finalVersion      Int?
+  finalizedAt       DateTime?
+  finalizedByUserId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  finalizedBy User?      @relation("TournamentRankingStateFinalizedBy", fields: [finalizedByUserId], references: [id], onDelete: SetNull)
+}
+
+model RankingEntry {
+  id                   String                @id @default(cuid())
+  tournamentId         String
+  snapshotType         RankingSnapshotType
+  scope                RankingScope
+  version              Int
+  position             Int
+  competitorType       RankingCompetitorType
+  competitorId         String
+  competitorName       String
+  totalPoints          Int
+  validPieces          Int
+  totalLength          Float
+  bestCaptureLength    Float
+  distinctSpeciesCount Int
+  penaltyPoints        Int
+  lastScoringCaptureAt DateTime?
+  calculatedAt         DateTime
+  createdAt            DateTime              @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId, snapshotType, scope, version, position])
+  @@unique([tournamentId, snapshotType, scope, version, competitorId])
+}
+
+model ExportRecord {
+  id                    String             @id @default(cuid())
+  tournamentId          String
+  exportType            ExportType
+  format                ExportFormat
+  status                ExportStatus
+  scope                 RankingScope?
+  storageKey            String?
+  fileName              String
+  mimeType              String
+  sizeBytes             Int?
+  requestedByUserId     String
+  requestedAt           DateTime           @default(now())
+  generatedAt           DateTime?
+  sourceSnapshotType    RankingSnapshotType?
+  sourceSnapshotVersion Int?
+  errorCode             String?
+
+  tournament  Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  requestedBy User       @relation("ExportRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([tournamentId, requestedAt])
+  @@index([requestedByUserId, requestedAt])
+}

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Torneos de Pesca">
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#145d61" />
+      <stop offset="100%" stop-color="#0f4447" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#bg)" />
+  <path
+    d="M18 34c6-8 15-13 28-15-4 7-10 13-18 18l7 2c-4 4-10 6-17 6 2-3 3-6 3-11l-3 0Z"
+    fill="#f7f5ef"
+  />
+  <circle cx="43" cy="22" r="3" fill="#c46f2c" />
+</svg>
