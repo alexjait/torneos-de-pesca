@@ -13,7 +13,7 @@ Aplicación web para administrar torneos de pesca, desde la preparación del eve
 
 ## Stack
 
-- Frontend: Next.js 14, React 18 y TypeScript.
+- Frontend: Next.js 16, React 18 y TypeScript.
 - Backend: NestJS 11, Prisma y PostgreSQL.
 - Correo transaccional: Resend (opcional en desarrollo local).
 

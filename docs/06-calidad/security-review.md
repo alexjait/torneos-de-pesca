@@ -2,6 +2,13 @@
 
 Owner recomendado: `security_reviewer`
 
+## Mantenimiento de dependencias 2026-09-27
+
+- `npm audit` queda sin vulnerabilidades en `backend/` y `frontend/` luego de una instalación reproducible con `npm ci`.
+- Frontend actualizado a Next.js `16.3.6`; lint, pruebas de PKG-007/008 y build de producción en verde.
+- `xlsx` usa la distribución oficial `0.20.3` de SheetJS, ya que el paquete publicado en npm no ofrece una corrección para los avisos conocidos.
+- El override de `deepmerge-ts` `8.0.0` corrige la dependencia interna de Prisma; `prisma generate`, lint, build y las pruebas de backend en verde.
+
 ## Resumen Ejecutivo
 
 - paquete revisado: `PKG-001 Base administrativa y acceso`
