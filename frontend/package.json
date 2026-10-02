@@ -12,7 +12,7 @@
     "test:pkg008": "node --experimental-strip-types tests/table-sorting.test.ts && node --experimental-strip-types tests/capture-photo-upload.test.ts && node --experimental-strip-types tests/pkg008.ui-shell.test.ts && node --experimental-strip-types tests/pkg008.operational-layout.test.ts"
   },
   "dependencies": {
-    "next": "^16.3.6",
+    "next": "^16.3.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
