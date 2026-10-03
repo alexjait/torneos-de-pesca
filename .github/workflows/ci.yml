@@ -35,6 +35,7 @@ jobs:
       - run: npm run test:pkg004
       - run: npm run test:pkg006
       - run: npm run test:pkg007
+      - run: npm run test:dev-watcher
       - run: npm audit --audit-level=high
 
   frontend:

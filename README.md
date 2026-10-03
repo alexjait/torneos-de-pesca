@@ -67,6 +67,7 @@ npm run build
 npm run test:pkg004
 npm run test:pkg006
 npm run test:pkg007
+npm run test:dev-watcher
 
 cd ../frontend
 npm run lint
