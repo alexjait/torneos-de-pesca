@@ -76,7 +76,7 @@ npm run test:pkg008
 npm run build
 ```
 
-GitHub Actions ejecuta estas verificaciones en cada pull request y cambio a `main`. Dependabot revisa semanalmente las dependencias de backend y frontend, y mensualmente las acciones de CI.
+GitHub Actions ejecuta estas verificaciones en cada pull request y cambio a `main`. Dependabot revisa semanalmente las dependencias de backend y frontend, y mensualmente las acciones de CI. Las actualizaciones mayores se planifican manualmente; las correcciones de seguridad siguen activas.
 
 La documentación funcional, técnica y de paquetes se encuentra en [docs/00-indice](docs/00-indice/README.md).
 
